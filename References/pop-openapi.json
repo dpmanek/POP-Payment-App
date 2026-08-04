@@ -1,0 +1,321 @@
+{
+	"openapi": "3.0.3",
+
+	"info": {
+		"title": "POP — Payment Ops Platform API (mock contract)",
+
+		"description": "API contract for the POP mock in the FSB Payment Ops demo — scoped to the single endpoint Pega calls: **threshold determination**.\n\nPOP handles email work internally against the real mailboxes via **Outlook / Microsoft Graph APIs** (FIS exception-email intake and RBO/PCG reply parsing), so those are not part of this HTTP contract. After parsing, POP calls the Pega mock's own API — `POST /api/cases` to create cases (one per company/ACH ID per file) and `POST /api/cases/{id}/submit` to post parsed RBO/PCG decisions — both specified in the Pega mock's `openapi.json` (served at http://localhost:3000/api-docs).\n\nPOP is **headless** (no operator UI) and **stateless** (no storage beyond a transaction). All data is fictional; both apps are demo mocks.",
+
+		"version": "1.0.0",
+
+		"contact": {
+			"name": "Aju Thomas"
+		}
+	},
+
+	"servers": [
+		{
+			"url": "http://localhost:4000",
+
+			"description": "POP mock (suggested port — must not collide with the Pega mock on 3000)"
+		}
+	],
+
+	"tags": [
+		{
+			"name": "Determination",
+
+			"description": "Threshold determination requested by Pega's workflow"
+		}
+	],
+
+	"paths": {
+		"/pop/api/threshold-determination": {
+			"post": {
+				"tags": ["Determination"],
+
+				"summary": "Determine routing for an exception (called by Pega's workflow)",
+
+				"description": "The core POP call in the case workflow. Receives the full exception payload upfront (per the headless/stateless design — data is shifted left into the request), computes **Overage = Exposure − D.Limit − C.Limit** (for the highest transaction) and the **grand total** (PCG hold — credits only), compares the overage against the temporary threshold, and returns the routing determination synchronously:\n- overage = 0 → `EQUALS_LIMIT` / route `HUMAN_REVIEW`\n- 0 < overage ≤ temp threshold → `BELOW_THRESHOLD` / route `AUTO_CLOSE_BELOW_THRESHOLD`\n- overage > temp threshold → `EXCEEDS_THRESHOLD` / route `RBOPCG_ESCALATION`\n\nPega records the request and response as history lines and applies the routing.",
+
+				"operationId": "thresholdDetermination",
+
+				"requestBody": {
+					"required": true,
+
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/DeterminationRequest"
+							},
+
+							"example": {
+								"caseId": "EXP-30412",
+
+								"company": "Top Banana LLC",
+
+								"achId": "5271834",
+
+								"exceptionType": "Credit Exposure",
+
+								"limits": {
+									"dLimitValue": 50000,
+
+									"cLimitValue": 450000,
+
+									"tempValue": 25000,
+
+									"exposureValue": 550000
+								},
+
+								"transactions": [
+									{
+										"type": "Credit",
+
+										"tc": "27",
+
+										"account": "•••• 8830",
+
+										"amount": 180000
+									}
+								]
+							}
+						}
+					}
+				},
+
+				"responses": {
+					"200": {
+						"description": "Routing determination",
+
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DeterminationResponse"
+								},
+
+								"example": {
+									"caseId": "EXP-30412",
+
+									"determination": "EXCEEDS_THRESHOLD",
+
+									"route": "RBOPCG_ESCALATION",
+
+									"overageValue": 50000,
+
+									"grandTotalValue": 50000,
+
+									"rationale": "Overage $50,000.00 exceeds temporary threshold $25,000.00 — RBO/PCG escalation required"
+								}
+							}
+						}
+					},
+
+					"400": {
+						"$ref": "#/components/responses/BadRequest"
+					}
+				}
+			}
+		}
+	},
+
+	"components": {
+		"responses": {
+			"BadRequest": {
+				"description": "Malformed or incomplete payload",
+
+				"content": {
+					"application/json": {
+						"schema": {
+							"$ref": "#/components/schemas/Error"
+						}
+					}
+				}
+			}
+		},
+
+		"schemas": {
+			"Error": {
+				"type": "object",
+
+				"properties": {
+					"error": {
+						"type": "string",
+
+						"example": "Missing required field: limits.exposureValue"
+					}
+				}
+			},
+
+			"Transaction": {
+				"type": "object",
+
+				"properties": {
+					"type": {
+						"type": "string",
+
+						"enum": ["Credit", "Debit"]
+					},
+
+					"tc": {
+						"type": "string",
+
+						"enum": ["22", "27"],
+
+						"description": "TC code: 22 = debit, 27 = credit"
+					},
+
+					"account": {
+						"type": "string",
+
+						"example": "•••• 8830"
+					},
+
+					"amount": {
+						"type": "number",
+
+						"example": 180000
+					}
+				}
+			},
+
+			"DeterminationRequest": {
+				"type": "object",
+
+				"required": ["caseId", "limits"],
+
+				"properties": {
+					"caseId": {
+						"type": "string",
+
+						"example": "EXP-30412"
+					},
+
+					"company": {
+						"type": "string",
+
+						"example": "Top Banana LLC"
+					},
+
+					"achId": {
+						"type": "string",
+
+						"example": "5271834"
+					},
+
+					"exceptionType": {
+						"type": "string",
+
+						"enum": ["Credit Exposure", "Debit Exposure"]
+					},
+
+					"limits": {
+						"type": "object",
+
+						"required": [
+							"dLimitValue",
+
+							"cLimitValue",
+
+							"tempValue",
+
+							"exposureValue"
+						],
+
+						"properties": {
+							"dLimitValue": {
+								"type": "number",
+
+								"example": 50000
+							},
+
+							"cLimitValue": {
+								"type": "number",
+
+								"example": 450000
+							},
+
+							"tempValue": {
+								"type": "number",
+
+								"description": "Temporary limit increase (0 = none on file)",
+
+								"example": 25000
+							},
+
+							"exposureValue": {
+								"type": "number",
+
+								"description": "Aggregate (running) exposure",
+
+								"example": 550000
+							}
+						}
+					},
+
+					"transactions": {
+						"type": "array",
+
+						"items": {
+							"$ref": "#/components/schemas/Transaction"
+						}
+					}
+				}
+			},
+
+			"DeterminationResponse": {
+				"type": "object",
+
+				"properties": {
+					"caseId": {
+						"type": "string",
+
+						"example": "EXP-30412"
+					},
+
+					"determination": {
+						"type": "string",
+
+						"enum": ["EQUALS_LIMIT", "BELOW_THRESHOLD", "EXCEEDS_THRESHOLD"]
+					},
+
+					"route": {
+						"type": "string",
+
+						"enum": [
+							"HUMAN_REVIEW",
+
+							"AUTO_CLOSE_BELOW_THRESHOLD",
+
+							"RBOPCG_ESCALATION"
+						]
+					},
+
+					"overageValue": {
+						"type": "number",
+
+						"description": "Exposure − D.Limit − C.Limit (highest transaction)",
+
+						"example": 50000
+					},
+
+					"grandTotalValue": {
+						"type": "number",
+
+						"nullable": true,
+
+						"description": "Sum of overages for the PCG hold — credits only (null for debit exposure)",
+
+						"example": 50000
+					},
+
+					"rationale": {
+						"type": "string",
+
+						"example": "Overage $50,000.00 exceeds temporary threshold $25,000.00 — RBO/PCG escalation required"
+					}
+				}
+			}
+		}
+	}
+}

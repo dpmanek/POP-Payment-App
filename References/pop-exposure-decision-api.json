@@ -1,0 +1,391 @@
+{
+	"openapi": "3.0.3",
+
+	"info": {
+		"title": "POP Exposure Decision API",
+
+		"description": "Headless, stateless decision endpoint for ACH exposure exceptions (credit and debit). Given case, limit, and transaction data, returns an overage calculation, a breach determination, and — when breached — a recommendation. No state is retained between calls, and no action is taken beyond returning the decision.",
+
+		"version": "0.1.0",
+
+		"contact": {
+			"name": "Aju Thomas"
+		}
+	},
+
+	"servers": [
+		{
+			"url": "http://localhost:4000"
+		}
+	],
+
+	"tags": [
+		{
+			"name": "ExposureDecision"
+		}
+	],
+
+	"paths": {
+		"/pop/api/exposure-decision": {
+			"post": {
+				"tags": ["ExposureDecision"],
+
+				"summary": "Calculate overage and decide routing for an ACH exposure exception",
+
+				"operationId": "exposureDecision",
+
+				"requestBody": {
+					"required": true,
+
+					"content": {
+						"application/json": {
+							"schema": { "$ref": "#/components/schemas/DecisionRequest" },
+
+							"examples": {
+								"routeToUnderwriter": {
+									"summary": "Overage beyond the temporary limit increase",
+
+									"value": {
+										"caseId": "EXP-30412",
+
+										"company": "Top Banana LLC",
+
+										"achId": "5271834",
+
+										"fileNumber": "FN-88213",
+
+										"batchNumber": "B-04",
+
+										"exceptionType": "Credit Exposure",
+
+										"limits": {
+											"dLimitValue": 50000,
+
+											"cLimitValue": 450000,
+
+											"tempValue": 25000,
+
+											"exposureValue": 550000
+										},
+
+										"transactions": [
+											{
+												"type": "Credit",
+												"tc": "27",
+												"account": "•••• 8830",
+												"amount": 180000
+											}
+										]
+									}
+								},
+
+								"insufficientData": {
+									"summary": "Missing debit limit — cannot compute overage",
+
+									"value": {
+										"caseId": "EXP-30415",
+
+										"company": "Blue Harbor Freight",
+
+										"achId": "9930211",
+
+										"exceptionType": "Debit Exposure",
+
+										"limits": {
+											"cLimitValue": 100000,
+
+											"tempValue": 0,
+
+											"exposureValue": 210000
+										},
+
+										"transactions": [
+											{
+												"type": "Debit",
+												"tc": "22",
+												"account": "•••• 4471",
+												"amount": 210000
+											}
+										]
+									}
+								}
+							}
+						}
+					}
+				},
+
+				"responses": {
+					"200": {
+						"description": "Decision result",
+
+						"content": {
+							"application/json": {
+								"schema": { "$ref": "#/components/schemas/DecisionResponse" },
+
+								"example": {
+									"caseId": "EXP-30412",
+
+									"exceptionType": "Credit Exposure",
+
+									"overageValue": 50000,
+
+									"grandTotalValue": 50000,
+
+									"limitBreached": "YES",
+
+									"recommendation": "ROUTE-UW",
+
+									"confidence": 0.92,
+
+									"rationale": "Exposure $550,000.00 less D-Limit $50,000.00 and C-Limit $450,000.00 leaves overage $50,000.00, which exceeds the $25,000.00 temporary limit increase on file.",
+
+									"seniorLenderReferral": false,
+
+									"missingDataFields": [],
+
+									"additionalNotes": null,
+
+									"requiresHumanDecision": true
+								}
+							}
+						}
+					},
+
+					"400": { "$ref": "#/components/responses/BadRequest" }
+				}
+			}
+		}
+	},
+
+	"components": {
+		"responses": {
+			"BadRequest": {
+				"description": "Structurally malformed request (e.g., missing caseId, wrong field types). Missing business data is not an error — it is returned as a 200 with limitBreached: INSUFFICIENT_DATA.",
+
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/Error" }
+					}
+				}
+			}
+		},
+
+		"schemas": {
+			"Error": {
+				"type": "object",
+
+				"properties": {
+					"error": {
+						"type": "string",
+						"example": "Missing required field: caseId"
+					}
+				}
+			},
+
+			"Transaction": {
+				"type": "object",
+
+				"properties": {
+					"type": { "type": "string", "enum": ["Credit", "Debit"] },
+
+					"tc": {
+						"type": "string",
+
+						"enum": ["22", "27"],
+
+						"description": "22 = debit, 27 = credit"
+					},
+
+					"account": { "type": "string", "example": "•••• 8830" },
+
+					"amount": { "type": "number", "example": 180000 }
+				}
+			},
+
+			"DecisionRequest": {
+				"type": "object",
+
+				"required": ["caseId"],
+
+				"properties": {
+					"caseId": { "type": "string", "example": "EXP-30412" },
+
+					"company": { "type": "string", "example": "Top Banana LLC" },
+
+					"achId": { "type": "string", "example": "5271834" },
+
+					"fileNumber": { "type": "string", "example": "FN-88213" },
+
+					"batchNumber": { "type": "string", "example": "B-04" },
+
+					"exceptionType": {
+						"type": "string",
+
+						"enum": ["Credit Exposure", "Debit Exposure"],
+
+						"description": "The exposure type this case is being decisioned against. Taken as given — not reconciled or re-derived."
+					},
+
+					"limits": {
+						"type": "object",
+
+						"properties": {
+							"dLimitValue": {
+								"type": "number",
+								"nullable": true,
+								"example": 50000
+							},
+
+							"cLimitValue": {
+								"type": "number",
+								"nullable": true,
+								"example": 450000
+							},
+
+							"tempValue": {
+								"type": "number",
+
+								"default": 0,
+
+								"description": "Temporary limit increase on file. 0/absent = none on file, a valid value.",
+
+								"example": 25000
+							},
+
+							"exposureValue": {
+								"type": "number",
+								"nullable": true,
+								"description": "Aggregate/running exposure",
+								"example": 550000
+							},
+
+							"creditCeiling": {
+								"type": "number",
+
+								"default": 300000,
+
+								"description": "Authority ceiling for credit exposure."
+							},
+
+							"debitCeiling": {
+								"type": "number",
+
+								"default": 200000,
+
+								"description": "Authority ceiling for debit exposure."
+							}
+						}
+					},
+
+					"transactions": {
+						"type": "array",
+
+						"items": { "$ref": "#/components/schemas/Transaction" }
+					}
+				}
+			},
+
+			"DecisionResponse": {
+				"type": "object",
+
+				"properties": {
+					"caseId": { "type": "string", "example": "EXP-30412" },
+
+					"exceptionType": {
+						"type": "string",
+
+						"enum": ["Credit Exposure", "Debit Exposure"],
+
+						"description": "Echoes the exposure type the decision was made against."
+					},
+
+					"overageValue": {
+						"type": "number",
+
+						"nullable": true,
+
+						"description": "Exposure minus debit limit minus credit limit, computed against the highest-value transaction. Null when limitBreached is INSUFFICIENT_DATA.",
+
+						"example": 50000
+					},
+
+					"grandTotalValue": {
+						"type": "number",
+
+						"nullable": true,
+
+						"description": "Sum of overage amounts across credit-type transactions only. Null for debit exposure or when INSUFFICIENT_DATA.",
+
+						"example": 50000
+					},
+
+					"limitBreached": {
+						"type": "string",
+
+						"enum": ["YES", "NO", "INSUFFICIENT_DATA"]
+					},
+
+					"recommendation": {
+						"type": "string",
+
+						"enum": ["APPROVE", "ROUTE-UW"],
+
+						"nullable": true,
+
+						"description": "Present only when limitBreached is YES. Never REJECT."
+					},
+
+					"confidence": {
+						"type": "number",
+
+						"minimum": 0,
+
+						"maximum": 1,
+
+						"nullable": true,
+
+						"description": "Present only when a recommendation is returned."
+					},
+
+					"rationale": {
+						"type": "string",
+
+						"nullable": true,
+
+						"example": "Overage $50,000.00 exceeds the $25,000.00 temporary limit increase on file."
+					},
+
+					"seniorLenderReferral": {
+						"type": "boolean",
+
+						"description": "True when overage/exposure exceeds the applicable authority ceiling. Informational only."
+					},
+
+					"missingDataFields": {
+						"type": "array",
+
+						"items": { "type": "string" },
+
+						"description": "Populated only when limitBreached is INSUFFICIENT_DATA.",
+
+						"example": ["limits.dLimitValue"]
+					},
+
+					"additionalNotes": {
+						"type": "string",
+
+						"nullable": true,
+
+						"example": "Cannot compute overage without a debit limit value."
+					},
+
+					"requiresHumanDecision": {
+						"type": "boolean",
+
+						"description": "True whenever limitBreached is YES; false otherwise."
+					}
+				}
+			}
+		}
+	}
+}
