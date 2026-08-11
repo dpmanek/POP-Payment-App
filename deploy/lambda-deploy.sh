@@ -18,8 +18,6 @@ REGION="${1:-${REGION:-us-east-1}}"
 ROLE_NAME="${ROLE_NAME:-${FN_NAME}-exec-role}"
 RUNTIME="nodejs20.x"
 HANDLER="dist/aws/lambda-app.handler"
-MEMORY="${MEMORY:-256}"
-TIMEOUT="${TIMEOUT:-10}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_ZIP="${ROOT}/deploy/function.zip"
 
@@ -29,6 +27,19 @@ aws sts get-caller-identity --region "${REGION}" >/dev/null || {
   exit 1
 }
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text --region "${REGION}")"
+
+# Memory/timeout: inherit whatever the deployed function already uses, so a
+# deploy never silently reverts values that were tuned by hand. Override with
+# MEMORY=... TIMEOUT=... on the command line.
+CUR_CFG="$(aws lambda get-function-configuration --function-name "${FN_NAME}" \
+  --region "${REGION}" --query '[MemorySize,Timeout]' --output text 2>/dev/null || true)"
+if [ -n "${CUR_CFG}" ]; then
+  MEMORY="${MEMORY:-$(echo "${CUR_CFG}" | awk '{print $1}')}"
+  TIMEOUT="${TIMEOUT:-$(echo "${CUR_CFG}" | awk '{print $2}')}"
+fi
+MEMORY="${MEMORY:-256}"
+TIMEOUT="${TIMEOUT:-10}"
+echo "    Memory: ${MEMORY} MB   Timeout: ${TIMEOUT}s"
 
 # --- 1. build ---------------------------------------------------------------
 echo "==> Building TypeScript..."
@@ -92,22 +103,46 @@ else
 fi
 aws lambda wait function-updated --function-name "${FN_NAME}" --region "${REGION}"
 
-# --- 5. public Function URL -------------------------------------------------
-echo "==> Ensuring public Function URL..."
-if ! aws lambda get-function-url-config --function-name "${FN_NAME}" --region "${REGION}" >/dev/null 2>&1; then
-  aws lambda create-function-url-config --function-name "${FN_NAME}" \
-    --auth-type NONE --region "${REGION}" >/dev/null
+# --- 5. resolve the public endpoint -----------------------------------------
+#
+# Function URLs are blocked by an org SCP on some accounts. Try one, and if it
+# cannot be created fall back to the API Gateway endpoint that apigw-deploy.sh
+# put in front of this function. Never abort the deploy over it — by this point
+# the code is already live.
+echo "==> Resolving public endpoint..."
+URL=""
+if aws lambda get-function-url-config --function-name "${FN_NAME}" --region "${REGION}" >/dev/null 2>&1; then
+  URL="$(aws lambda get-function-url-config --function-name "${FN_NAME}" \
+    --query FunctionUrl --output text --region "${REGION}")"
+elif aws lambda create-function-url-config --function-name "${FN_NAME}" \
+       --auth-type NONE --region "${REGION}" >/dev/null 2>&1; then
   aws lambda add-permission --function-name "${FN_NAME}" \
     --statement-id FunctionURLAllowPublicAccess --action lambda:InvokeFunctionUrl \
     --principal '*' --function-url-auth-type NONE --region "${REGION}" >/dev/null 2>&1 || true
+  URL="$(aws lambda get-function-url-config --function-name "${FN_NAME}" \
+    --query FunctionUrl --output text --region "${REGION}")"
+else
+  echo "    Function URL unavailable (blocked by policy) — using API Gateway."
+  API_ID="$(aws apigatewayv2 get-apis --region "${REGION}" \
+    --query "Items[?Name=='${FN_NAME}-api'].ApiId | [0]" --output text 2>/dev/null || echo 'None')"
+  if [ "${API_ID}" != "None" ] && [ -n "${API_ID}" ]; then
+    URL="$(aws apigatewayv2 get-api --api-id "${API_ID}" --region "${REGION}" \
+      --query ApiEndpoint --output text)/"
+  fi
 fi
-URL="$(aws lambda get-function-url-config --function-name "${FN_NAME}" \
-  --query FunctionUrl --output text --region "${REGION}")"
+
+if [ -z "${URL}" ]; then
+  echo ""
+  echo "Code deployed, but no public endpoint exists yet."
+  echo "Run ./deploy/apigw-deploy.sh ${REGION} to put an API Gateway in front of it."
+  exit 0
+fi
 
 # --- done -------------------------------------------------------------------
 echo ""
 echo "==================================================================="
-echo " Deployed. Live URL: ${URL}"
+echo " Deployed. Live URL:  ${URL}"
+echo " Workflow UI:         ${URL}ui/"
 echo "==================================================================="
 echo ""
 echo "Test it:"

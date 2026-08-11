@@ -4,8 +4,10 @@ import react from '@vitejs/plugin-react';
 /**
  * Two things matter here:
  *
- * 1. `base` — in production the UI is served by the existing Express app at
- *    /ui, so built asset URLs must be prefixed. In dev it stays at the root.
+ * 1. `base` — relative, so the same build works from any path: the root of the
+ *    CloudFront distribution (production) and /ui on the Express app (local
+ *    one-port testing). The UI has no client-side router, so relative asset
+ *    URLs are safe.
  *
  * 2. `proxy` — the "Use live decision service" toggle calls the real POP APIs.
  *    In production the UI and the API share an origin, so requests are relative
@@ -18,7 +20,7 @@ export default defineConfig(({ command }) => {
 
   return {
     plugins: [react()],
-    base: command === 'build' ? '/ui/' : '/',
+    base: command === 'build' ? './' : '/',
     server: {
       port: 5173,
       proxy: {
