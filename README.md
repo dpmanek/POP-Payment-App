@@ -6,8 +6,13 @@ POP is **not** a user application. Pega handles email, cases, screens, humans, a
 calls POP with an exception payload, POP computes a decision, and returns it. POP holds no state
 between calls and takes no action beyond returning the decision.
 
-This repository implements **only** the decision service — no email, Excel parsing, case
-management, UI, or workflow.
+The decision service implements **only** the decision — no email, Excel parsing, or case
+management.
+
+Alongside it, this repository now carries a **workflow view** (`web/`): a read-only dashboard that
+shows an ACH exposure case moving through its processing steps. It runs on simulated data today and
+is designed to be pointed at a real orchestrator later without UI changes. See
+[Workflow UI](#workflow-ui) and [docs/INTEGRATION-MAP.md](docs/INTEGRATION-MAP.md).
 
 ---
 
@@ -116,6 +121,53 @@ curl -s http://localhost:4000/pop/api/exposure-decision \
 
 ---
 
+## Workflow UI
+
+A step-by-step view of an ACH exposure case for banking operations staff. React + Vite +
+TypeScript, in `web/`, with its own `package.json` so it never enters the API's dependency tree.
+
+```bash
+cd web
+npm install
+npm run dev          # http://localhost:5173
+```
+
+The UI needs no backend to run — every step is simulated in the browser. Start the API too if you
+want the **Use live decision service** toggle, which switches the Exposure Review and Routing
+Decision steps to the real endpoints:
+
+```bash
+npm run dev          # in the repo root, http://localhost:4000
+```
+
+Vite proxies `/pop` and `/health` to `http://localhost:4000`. Point it somewhere else — the
+deployed API Gateway, for instance — with `VITE_PROXY_TARGET`. See `web/.env.example`.
+
+### What it shows
+
+Workflow name and overall status, then each step with its status (**Not Started**, **Processing**,
+**Completed**, **Needs Attention**, **Waiting for Review**), a one-line result, start and finish
+times, and an expandable panel with the full response or the failure reason. The step currently
+processing is highlighted. Three example cases are included: over-threshold escalation,
+within-threshold auto-close, and a lookup failure.
+
+Every step is badged **Simulated** or **Live data** so simulated output is never mistaken for real
+customer records.
+
+### Real vs simulated
+
+Two of the nine steps have a real API behind them (Exposure Review, Routing Decision). The other
+seven are simulated. Full mapping, plus the contract the future orchestrator must satisfy, is in
+[docs/INTEGRATION-MAP.md](docs/INTEGRATION-MAP.md).
+
+### Served in production
+
+`npm run build` in `web/` emits `web/dist`, which the Express app serves at `/ui` when present —
+one origin, one Lambda, no CORS. The API behaves identically when `web/dist` is absent.
+`deploy/lambda-deploy.sh` builds and packages the UI automatically.
+
+---
+
 ## Architecture
 
 ```
@@ -135,6 +187,14 @@ src/
 ├── logger/               # Pino (structured JSON, CloudWatch-native)
 ├── aws/lambda.ts         # deployment seam — same engine, no Express
 └── server.ts             # local / container entrypoint
+
+web/                      # workflow UI (React + Vite), own package.json
+├── src/types/            # WorkflowRun contract — the orchestrator handoff artifact
+├── src/services/         # WorkflowService interface + mock and HTTP implementations
+├── src/hooks/            # polling
+└── src/components/       # header, step timeline, expandable detail
+
+docs/INTEGRATION-MAP.md   # workflow step -> API mapping, real vs mocked
 ```
 
 **Design invariant:** `core/` never imports a transport. Express today, AWS Lambda tomorrow — the

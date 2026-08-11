@@ -1,0 +1,747 @@
+/* POP Workflow View — light, dense, bank-operations styling. No external fonts
+   or images: the whole UI is text, CSS and inline SVG so it can be served
+   straight out of the existing Lambda bundle with no binary assets. */
+
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --border: #dfe4ec;
+  --border-strong: #c8d0dd;
+  --text: #16202e;
+  --text-soft: #5b6a80;
+  --text-faint: #8a97a9;
+
+  --idle: #93a1b5;
+  --idle-bg: #eef1f6;
+  --active: #1c62d6;
+  --active-bg: #e8f0fd;
+  --good: #16794a;
+  --good-bg: #e5f4ec;
+  --bad: #b3261e;
+  --bad-bg: #fceceb;
+  --hold: #92600a;
+  --hold-bg: #fdf3e0;
+
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(22, 32, 46, 0.06), 0 1px 8px rgba(22, 32, 46, 0.04);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+}
+
+/* ---------- header ---------- */
+
+.head {
+  margin-bottom: 18px;
+}
+
+.head__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.head__mark {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius);
+  background: #16202e;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+}
+
+.head__title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.head__sub {
+  margin: 2px 0 0;
+  color: var(--text-soft);
+  font-size: 13.5px;
+}
+
+/* ---------- notice banner ---------- */
+
+.notice {
+  background: var(--hold-bg);
+  border: 1px solid #f0dcb4;
+  border-radius: var(--radius);
+  padding: 11px 14px;
+  font-size: 13.5px;
+  color: #6b4a10;
+  margin-bottom: 18px;
+}
+
+/* ---------- controls ---------- */
+
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.controls__field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-soft);
+  margin-bottom: 6px;
+}
+
+.controls__field select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+}
+
+.controls__field select:disabled {
+  background: var(--idle-bg);
+  color: var(--text-faint);
+}
+
+.controls__hint {
+  margin: 7px 0 0;
+  font-size: 12.5px;
+  color: var(--text-faint);
+  line-height: 1.45;
+}
+
+.controls__actions {
+  display: flex;
+  gap: 10px;
+  align-self: center;
+}
+
+.btn {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 9px 16px;
+  border-radius: 7px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover:not(:disabled) {
+  background: #f7f9fc;
+}
+
+.btn--primary {
+  background: #1c62d6;
+  border-color: #1c62d6;
+  color: #fff;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: #1854b8;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* toggle switch */
+
+/* Specificity note: this must outrank `.controls__field label`, which sets the
+   uppercase block-level styling used by the other field captions. */
+.controls__field label.switch {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0;
+}
+
+/* Visually hidden but still focusable and exposed to screen readers. Do not
+   collapse to width/height 0 — that drops it out of the accessibility tree. */
+.switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch__track {
+  position: relative;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--border-strong);
+  transition: background 0.15s ease;
+}
+
+.switch__knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.switch input:checked + .switch__track {
+  background: #1c62d6;
+}
+
+.switch input:checked + .switch__track .switch__knob {
+  transform: translateX(16px);
+}
+
+.switch input:focus-visible + .switch__track {
+  outline: 2px solid #1c62d6;
+  outline-offset: 2px;
+}
+
+.switch input:disabled + .switch__track {
+  opacity: 0.5;
+}
+
+/* The toggle column has no uppercase caption, so pull it level with the others. */
+.controls__field--toggle {
+  padding-top: 22px;
+}
+
+/* ---------- alert ---------- */
+
+.alert {
+  background: var(--bad-bg);
+  border: 1px solid #f1c9c6;
+  color: var(--bad);
+  padding: 11px 14px;
+  border-radius: var(--radius);
+  font-size: 13.5px;
+  margin-bottom: 18px;
+}
+
+/* ---------- workflow header card ---------- */
+
+.wf {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 22px;
+}
+
+.wf__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.wf__name {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.wf__case {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.wf__progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 16px;
+}
+
+.wf__bar {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--idle-bg);
+  overflow: hidden;
+}
+
+.wf__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.wf__fill--active {
+  background: var(--active);
+}
+.wf__fill--good {
+  background: var(--good);
+}
+.wf__fill--bad {
+  background: var(--bad);
+}
+.wf__fill--hold {
+  background: var(--hold);
+}
+.wf__fill--idle {
+  background: var(--idle);
+}
+
+.wf__count {
+  font-size: 13px;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.wf__facts {
+  display: flex;
+  gap: 32px;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.wf__facts dt {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.wf__facts dd {
+  margin: 3px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- step timeline ---------- */
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 14px;
+  padding-bottom: 12px;
+}
+
+/* connector line between markers */
+.step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 16px;
+  top: 34px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--border);
+}
+
+.step--good:not(:last-child)::before {
+  background: #b9e0cb;
+}
+
+.marker {
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--idle-bg);
+  color: var(--text-faint);
+  border: 2px solid var(--bg);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.marker svg {
+  width: 20px;
+  height: 20px;
+}
+
+.marker--good {
+  background: var(--good);
+  color: #fff;
+}
+.marker--bad {
+  background: var(--bad);
+  color: #fff;
+}
+.marker--hold {
+  background: var(--hold);
+  color: #fff;
+}
+.marker--active {
+  background: var(--active);
+  color: #fff;
+}
+
+/* pulsing ring on the step currently processing */
+.marker--spin::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--active);
+  opacity: 0.55;
+  animation: pulse 1.4s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
+.step__body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+
+.step--current .step__body {
+  border-color: #a9c6f4;
+  box-shadow: 0 0 0 3px rgba(28, 98, 214, 0.11), var(--shadow);
+}
+
+.step--pending .step__body,
+.step--idle .step__body {
+  background: #fbfcfe;
+}
+
+.step__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.step__titles {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.step__name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.step__now {
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--active);
+}
+
+.step__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.step__summary {
+  margin: 7px 0 0;
+  font-size: 13.5px;
+  color: var(--text-soft);
+}
+
+.step__summary--muted {
+  color: var(--text-faint);
+}
+
+.step__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+
+.step__meta strong {
+  color: var(--text-soft);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.step__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 11px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--active);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chev {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s ease;
+}
+
+.chev--open {
+  transform: rotate(180deg);
+}
+
+/* ---------- detail panel ---------- */
+
+.detail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.detail__what {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+.detail__block {
+  margin-bottom: 12px;
+}
+
+.detail__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  font-weight: 650;
+}
+
+.detail__error {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--bad);
+  background: var(--bad-bg);
+  border: 1px solid #f1c9c6;
+  border-radius: 7px;
+  padding: 10px 12px;
+}
+
+.detail__json {
+  margin: 0;
+  padding: 12px 14px;
+  background: #f7f9fc;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #2b3a4f;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.detail__empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+
+/* ---------- pills & tags ---------- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.pill--large {
+  font-size: 13px;
+  padding: 6px 14px 6px 11px;
+}
+
+.pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.pill--idle {
+  background: var(--idle-bg);
+  color: #64738a;
+}
+.pill--active {
+  background: var(--active-bg);
+  color: var(--active);
+}
+.pill--good {
+  background: var(--good-bg);
+  color: var(--good);
+}
+.pill--bad {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.pill--hold {
+  background: var(--hold-bg);
+  color: var(--hold);
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.tag--simulated {
+  background: var(--hold-bg);
+  color: var(--hold);
+  border: 1px solid #f0dcb4;
+}
+
+.tag--live {
+  background: var(--good-bg);
+  color: var(--good);
+  border: 1px solid #b9e0cb;
+}
+
+/* ---------- empty state & footer ---------- */
+
+.empty {
+  background: var(--surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  padding: 44px 24px;
+  text-align: center;
+}
+
+.empty h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.empty p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 13.5px;
+}
+
+.foot {
+  margin-top: 30px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+
+/* ---------- narrow screens ---------- */
+
+@media (max-width: 760px) {
+  .controls {
+    grid-template-columns: 1fr;
+  }
+
+  .wf__top {
+    flex-direction: column;
+  }
+
+  .wf__facts {
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marker--spin::after {
+    animation: none;
+  }
+  .wf__fill,
+  .chev,
+  .switch__knob,
+  .switch__track {
+    transition: none;
+  }
+}

@@ -10,3 +10,7 @@ coverage
 # deploy build artifacts
 deploy/pkg
 deploy/function.zip
+
+# workflow UI
+web/node_modules
+web/dist

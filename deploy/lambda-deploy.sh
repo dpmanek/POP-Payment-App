@@ -35,12 +35,23 @@ echo "==> Building TypeScript..."
 cd "${ROOT}"
 npm run build
 
-# --- 2. package (dist + production node_modules) ----------------------------
+# Build the workflow UI too, if it is present. Express serves it at /ui.
+if [ -f "${ROOT}/web/package.json" ]; then
+  echo "==> Building workflow UI..."
+  ( cd "${ROOT}/web" && npm install --no-audit --no-fund --silent && npm run build )
+fi
+
+# --- 2. package (dist + UI + production node_modules) -----------------------
 echo "==> Packaging function.zip..."
 rm -rf "${ROOT}/deploy/pkg" "${BUILD_ZIP}"
 mkdir -p "${ROOT}/deploy/pkg"
 cp -R "${ROOT}/dist" "${ROOT}/deploy/pkg/dist"
 cp "${ROOT}/package.json" "${ROOT}/deploy/pkg/package.json"
+if [ -d "${ROOT}/web/dist" ]; then
+  mkdir -p "${ROOT}/deploy/pkg/web"
+  cp -R "${ROOT}/web/dist" "${ROOT}/deploy/pkg/web/dist"
+  echo "    included workflow UI (/ui)"
+fi
 ( cd "${ROOT}/deploy/pkg" && npm install --omit=dev --no-audit --no-fund --silent )
 ( cd "${ROOT}/deploy/pkg" && zip -qr "${BUILD_ZIP}" . )
 echo "    $(du -h "${BUILD_ZIP}" | cut -f1) packaged"
